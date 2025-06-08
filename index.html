@@ -1,52 +1,171 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <title>Выбор модели</title>
-  <style>
-    body { font-family: sans-serif; padding: 2rem; }
-    select, button { font-size: 1rem; padding: 0.5rem; margin-top: 1rem; }
-  </style>
-</head>
-<body>
-  <h1>Выбери модель LLM</h1>
-  <select id="model-select" size="5" style="width: 100%;">
-    <option disabled>Загрузка моделей...</option>
-  </select>
-  <button id="confirm-btn" disabled>Подтвердить</button>
-
-  <script>
-    async function fetchModels() {
-      try {
-        const resp = await fetch('https://openrouter.ai/api/v1/models');
-        const json = await resp.json();
-        const sel = document.getElementById('model-select');
-        sel.innerHTML = '';
-        json.data.forEach(m => {
-          const opt = document.createElement('option');
-          opt.value = m.id;
-          opt.text = `${m.id} — ${m.description || ''}`;
-          sel.append(opt);
-        });
-        sel.disabled = false;
-        document.getElementById('confirm-btn').disabled = false;
-      } catch (e) {
-        console.error(e);
-        alert('Не удалось загрузить модели');
+  <head>
+    <meta charset="UTF-8" />
+    <title>Выбор модели</title>
+    <style>
+      :root {
+        --accent: #26a69a;
+        --accent-hover: #219082;
+        --background: #f6f8fa;
+        --surface: #ffffff;
+        --text: #222;
+        --subtle: #555;
       }
-    }
 
-    document.getElementById('model-select').addEventListener('change', e => {
-      document.getElementById('confirm-btn').dataset.model = e.target.value;
-    });
+      * { box-sizing: border-box; }
 
-    document.getElementById('confirm-btn').addEventListener('click', () => {
-      const model = document.getElementById('confirm-btn').dataset.model;
-      window.Telegram.WebApp.sendData(JSON.stringify({ model }));
-    });
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: var(--background);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 1rem;
+        color: var(--text);
+      }
 
-    fetchModels();
-  </script>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-</body>
+      .card {
+        width: 100%;
+        max-width: 420px;
+        background: var(--surface);
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        padding: 2rem 1.5rem;
+      }
+
+      h1 {
+        margin: 0 0 1.5rem;
+        font-size: 1.5rem;
+        text-align: center;
+      }
+
+      /* Сетка 2×3, чтобы всё влезало на экран */
+      .models {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+
+      .model-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.8rem 0.6rem;
+        border: 1px solid #ccc;
+        border-radius: 12px;
+        background: var(--surface);
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s, transform 0.1s;
+        user-select: none;
+      }
+
+      .model-btn:hover {
+        background: #e9fbfb;
+        border-color: var(--accent);
+        transform: translateY(-2px);
+      }
+
+      /* Иконки пристоково хуже смотрятся → ставим белый фон и padding для ровного вида */
+      .model-btn img,
+      .fallback-icon {
+        width: 56px;
+        height: 56px;
+        padding: 6px;
+        border-radius: 12px;
+        background: #fff;
+        object-fit: contain;
+        box-shadow: 0 0 0 1px #ddd inset;
+      }
+
+      .fallback-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--subtle);
+        font-weight: 600;
+        font-size: 1.3rem;
+      }
+
+      .model-btn span {
+        font-size: 0.9rem;
+        text-align: center;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Выбери модель LLM</h1>
+      <div class="models" id="models"></div>
+    </div>
+
+    <script>
+      (() => {
+        /**
+         * Используем логотипы из официальных open‑source бренд‑репозиториев / Wikipedia (SVG = чётче).
+         * Если не загрузится — fallback‑квадрат с первой буквой
+         */
+        const models = [
+          {
+            id: "openai/gpt-4o",
+            name: "GPT‑4o",
+            logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/OpenAI_Logo.svg/120px-OpenAI_Logo.svg.png",
+          },
+          {
+            id: "openai/codex-mini",
+            name: "Codex",
+            logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/OpenAI_Logo.svg/120px-OpenAI_Logo.svg.png",
+          },
+          {
+            id: "google/gemini-2.5-pro-preview",
+            name: "Gemini 2.5 Pro",
+            logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Google_G_Logo.svg/120px-Google_G_Logo.svg.png",
+          },
+          {
+            id: "mistralai/mistral-large-2407",
+            name: "Mistral Large 2",
+            logo: "https://raw.githubusercontent.com/mistralai/brand-assets/main/logo/mistral-icon.svg",
+          },
+          {
+            id: "deepseek/deepseek-r1",
+            name: "DeepSeek R1",
+            logo: "https://raw.githubusercontent.com/deepseek-ai/deepseek-docs/main/static/img/logo.png",
+          },
+          {
+            id: "openai/dall-e-3",
+            name: "DALL·E 3 (images)",
+            logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/DALL-E_logo.svg/120px-DALL-E_logo.svg.png",
+          },
+        ];
+
+        const container = document.getElementById("models");
+
+        // Создаём fallback‑иконку, если картинка не загрузилась (или 404)
+        window.fallbackIcon = (name) => {
+          const div = document.createElement("div");
+          div.className = "fallback-icon";
+          div.textContent = name[0] || "?";
+          return div;
+        };
+
+        models.forEach((m) => {
+          const btn = document.createElement("button");
+          btn.className = "model-btn";
+          btn.innerHTML = `<img src="${m.logo}" alt="${m.name} logo" onerror="this.replaceWith(fallbackIcon('${m.name}'))" />\n              <span>${m.name}</span>`;
+
+          btn.onclick = () => {
+            window.Telegram?.WebApp?.sendData?.(JSON.stringify({ model: m.id }));
+          };
+
+          container.appendChild(btn);
+        });
+      })();
+    </script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  </body>
 </html>
